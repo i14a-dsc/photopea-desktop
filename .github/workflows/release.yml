@@ -1,0 +1,256 @@
+name: Release
+
+on:
+  release:
+    types: [created]
+
+jobs:
+  build:
+    name: Build and Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '22.x'
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+
+          sudo apt-get install -y zip wget
+
+          sudo apt-get install -y --no-install-recommends \
+            libgtk-3-0 \
+            libatk1.0-0 \
+            libatk-bridge2.0-0 \
+            libcairo2 \
+            libpango-1.0-0 \
+            libpangocairo-1.0-0 \
+            libx11-6 \
+            libx11-xcb1 \
+            libxcb1 \
+            libxcomposite1 \
+            libxcursor1 \
+            libxdamage1 \
+            libxext6 \
+            libxfixes3 \
+            libxi6 \
+            libxrandr2 \
+            libxss1 \
+            libxtst6 \
+            libgbm1 \
+            libdrm2 \
+            libasound2t64 \
+            libcups2 \
+            libnss3 \
+            libxkbcommon0
+
+      - name: Install Node.js dependencies
+        run: |
+          npm install
+          npm install -g @neutralinojs/neu
+
+          if [ ! -f "./resources/js/neutralino.js" ]; then
+            echo "Initializing Neutralino client..."
+            mkdir -p ./resources/js
+            npx @neutralinojs/neu update
+          fi
+
+      - name: Build application with verbose output
+        run: |
+          echo "Current directory: $(pwd)"
+          echo "Node version: $(node --version)"
+          echo "NPM version: $(npm --version)"
+          echo "Neutralino version: $(neu version)"
+
+          if [ ! -f "./resources/js/neutralino.js" ]; then
+            echo "Error: Neutralino client not found after initialization"
+            ls -la ./resources/ || true
+            exit 1
+          fi
+
+          echo "=== Starting Neutralino build ==="
+          neu build || {
+            echo "=== Build failed. Current directory structure: ==="
+            ls -la
+            echo "=== Resources directory: ==="
+            ls -la resources/
+            echo "=== Resources/js directory: ==="
+            ls -la resources/js/ || true
+            exit 1
+          }
+
+          echo "=== Build completed. Directory structure: ==="
+          ls -la
+
+          if [ -d "dist" ]; then
+            echo "=== Dist directory contents: ==="
+            ls -la dist/
+            if [ -d "dist/photopea" ]; then
+              echo "=== Built files: ==="
+              ls -la dist/photopea/
+            fi
+          else
+            echo "Error: No dist directory was created by neu build"
+            exit 1
+          fi
+
+      - name: Create release directory
+        run: mkdir -p release
+
+      - name: Debug directory structure
+        run: |
+          echo "Current directory: $(pwd)"
+          ls -la
+          echo "=== dist/ contents ==="
+          ls -la dist/
+          echo "=== dist/photopea contents ==="
+          ls -la dist/photopea/
+
+      - name: Package release
+        shell: bash
+        run: |
+          mkdir -p release
+
+          if [ -f "dist/photopea/photopea-linux_x64" ]; then
+            echo "Packaging Linux x64..."
+            tar -czvf release/photopea-linux-x64.tar.gz -C dist/photopea photopea-linux_x64 resources.neu
+          else
+            echo "Warning: Linux x64 binary not found"
+          fi
+
+          if [ -f "dist/photopea/photopea-linux_arm64" ]; then
+            echo "Packaging Linux ARM64..."
+            tar -czvf release/photopea-linux-arm64.tar.gz -C dist/photopea photopea-linux_arm64 resources.neu
+          else
+            echo "Warning: Linux ARM64 binary not found"
+          fi
+
+          if [ -f "dist/photopea/photopea-linux_armhf" ]; then
+            echo "Packaging Linux ARMHF..."
+            tar -czvf release/photopea-linux-armhf.tar.gz -C dist/photopea photopea-linux_armhf resources.neu
+          else
+            echo "Warning: Linux ARMHF binary not found"
+          fi
+
+          if [ -f "dist/photopea/photopea-win_x64.exe" ]; then
+            echo "Packaging Windows x64..."
+            (cd dist/photopea && zip -j ../../release/photopea-win-x64.zip photopea-win_x64.exe resources.neu)
+          else
+            echo "Warning: Windows x64 binary not found"
+          fi
+
+          if [ -f "dist/photopea/photopea-mac_x64" ]; then
+            echo "Packaging macOS x64..."
+            tar -czvf release/photopea-mac-x64.tar.gz -C dist/photopea photopea-mac_x64 resources.neu
+          else
+            echo "Warning: macOS x64 binary not found"
+          fi
+
+          if [ -f "dist/photopea/photopea-mac_arm64" ]; then
+            echo "Packaging macOS ARM64..."
+            tar -czvf release/photopea-mac-arm64.tar.gz -C dist/photopea photopea-mac_arm64 resources.neu
+          else
+            echo "Warning: macOS ARM64 binary not found"
+          fi
+
+          if [ -f "dist/photopea/photopea-mac_universal" ]; then
+            echo "Packaging macOS Universal..."
+            tar -czvf release/photopea-mac-universal.tar.gz -C dist/photopea photopea-mac_universal resources.neu
+          else
+            echo "Warning: macOS Universal binary not found"
+          fi
+
+          echo "=== Created packages: ==="
+          ls -la release/
+
+      - name: Generate release notes
+        run: |
+          cat > release/release_notes.md << 'EOL'
+          ## Download Links
+
+          | OS | Architecture | Download |
+          |----|--------------|----------|
+          | Windows | x64 | [Download](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/photopea-win-x64.zip) |
+          | macOS | x64 | [Download](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/photopea-mac-x64.tar.gz) |
+          | macOS | ARM64 | [Download](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/photopea-mac-arm64.tar.gz) |
+          | macOS | Universal | [Download](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/photopea-mac-universal.tar.gz) |
+          | Linux | x64 | [Download](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/photopea-linux-x64.tar.gz) |
+          | Linux | ARM64 | [Download](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/photopea-linux-arm64.tar.gz) |
+          | Linux | ARMHF | [Download](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/photopea-linux-armhf.tar.gz) |
+          EOL
+
+      - name: Upload Linux x64
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ./release/photopea-linux-x64.tar.gz
+          asset_name: photopea-linux-x64.tar.gz
+          asset_content_type: application/gzip
+
+      - name: Upload Linux ARM64
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ./release/photopea-linux-arm64.tar.gz
+          asset_name: photopea-linux-arm64.tar.gz
+          asset_content_type: application/gzip
+
+      - name: Upload Linux ARMHF
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ./release/photopea-linux-armhf.tar.gz
+          asset_name: photopea-linux-armhf.tar.gz
+          asset_content_type: application/gzip
+
+      - name: Upload Windows x64
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ./release/photopea-win-x64.zip
+          asset_name: photopea-win-x64.zip
+          asset_content_type: application/zip
+
+      - name: Upload macOS x64
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ./release/photopea-mac-x64.tar.gz
+          asset_name: photopea-mac-x64.tar.gz
+          asset_content_type: application/gzip
+
+      - name: Upload macOS ARM64
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ./release/photopea-mac-arm64.tar.gz
+          asset_name: photopea-mac-arm64.tar.gz
+          asset_content_type: application/gzip
+
+      - name: Upload macOS Universal
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ./release/photopea-mac-universal.tar.gz
+          asset_name: photopea-mac-universal.tar.gz
+          asset_content_type: application/gzip

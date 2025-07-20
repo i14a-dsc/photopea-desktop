@@ -1,0 +1,6 @@
+{
+  "dependencies": {},
+  "devDependencies": {
+    "@neutralinojs/neu": "^11.5.0"
+  }
+}

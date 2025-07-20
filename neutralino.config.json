@@ -1,0 +1,48 @@
+{
+  "$schema": "https://raw.githubusercontent.com/neutralinojs/neutralinojs/main/schemas/neutralino.config.schema.json",
+  "applicationId": "com.photopea.desktop",
+  "version": "1.0.0",
+  "defaultMode": "window",
+  "port": 0,
+  "documentRoot": "/resources/",
+  "url": "https://www.photopea.com/",
+  "enableServer": false,
+  "enableNativeAPI": false,
+  "tokenSecurity": "one-time",
+  "logging": {
+    "enabled": false,
+    "writeToLogFile": false
+  },
+  "nativeAllowList": ["app.*", "os.*"],
+  "modes": {
+    "window": {
+      "title": "Photopea Desktop",
+      "width": 1280,
+      "height": 744,
+      "minWidth": 400,
+      "minHeight": 200,
+      "center": false,
+      "icon": "/resources/icons/appIcon.png",
+      "enableInspector": false,
+      "resizable": true,
+      "exitProcessOnClose": true
+    },
+    "browser": {
+      "nativeBlockList": ["filesystem.*"]
+    },
+    "chrome": {
+      "width": 1280,
+      "height": 744,
+      "args": "--user-agent=\"Chromium\"",
+      "nativeBlockList": ["filesystem.*", "os.*"]
+    }
+  },
+  "cli": {
+    "binaryName": "photopea",
+    "resourcesPath": "/resources/",
+    "extensionsPath": "/extensions/",
+    "clientLibrary": "/resources/js/neutralino.js",
+    "binaryVersion": "6.2.0",
+    "clientVersion": "1.0.0"
+  }
+}
